@@ -34,13 +34,14 @@ def read_file_in_chunks(file_path, chunk_size):
                 break
             yield lines
 
-def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, model_engine):
+def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, model_engine, new_filename):
     # Get the maximum number of segments in the SRT file
     max_segments = get_max_lines(filename)
     # Calculate the number of chunks
     num_chunks = (max_segments // chunk_size) + (1 if max_segments % chunk_size > 0 else 0)
     name, ext = os.path.splitext(filename)
-    new_filename = f"{name}_output.json"
+    if new_filename == "":
+      new_filename = f"{name}.out"
     # Loop through each chunk
     with open(new_filename, 'w') as srtfile:
       i = 0
@@ -106,6 +107,7 @@ parser.add_argument('-k', dest='key', help='Openai Key', default=key)
 parser.add_argument('-r', dest='role', help='the system role string', default=role)
 parser.add_argument('-p', dest='prompt', help='the prompt for chatgpt', default=prompt)
 parser.add_argument('-m', dest='model', help='the model used by chatgpt (default=gpt-3.5-turbo)', default=model)
+parser.add_argument('-o', dest='new_filename', help='the output file (default: filename.out)', default='')
 parser.add_argument('--list-models', help='list the supported models', action='store_true')
 parser.add_argument('-t', dest='temperature', help='how deterministic will answers be, 0=max determinism', type=float, default=temperature)
 args = parser.parse_args()
@@ -117,6 +119,7 @@ key = args.key
 role = args.role
 prompt = args.prompt
 temperature = args.temperature
+new_filename = args.new_filename
 model = args.model
 
 if model not in MODELS:
@@ -160,7 +163,7 @@ start_time = time.time()
 
 # check if the command succeeded
 logging.info("Translating CSV tickets from PT to EN and tagging them")
-chunk_csv_file(csv_filename, chunks, prompt, role, temperature, model)
+chunk_csv_file(csv_filename, chunks, prompt, role, temperature, model, new_filename)
 end_time = time.time()
 elapsed_time = end_time - start_time
 logging.info(f"Operation completed in {elapsed_time} seconds.")
