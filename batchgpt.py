@@ -10,6 +10,14 @@ import configparser
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
+MODELS = [
+    "gpt-4",
+    "gpt-4-32k",
+    "gpt-3.5-turbo",
+    "text-davinci-003",
+    "text-davinci-002",
+    "code-davinci-002"
+]
 
 def get_max_lines(filename):
     with open(filename, 'r') as f:
@@ -26,7 +34,7 @@ def read_file_in_chunks(file_path, chunk_size):
                 break
             yield lines
 
-def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature):
+def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, model_engine):
     # Get the maximum number of segments in the SRT file
     max_segments = get_max_lines(filename)
     # Calculate the number of chunks
@@ -39,8 +47,6 @@ def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature):
       for chunk in read_file_in_chunks(filename, chunk_size):
         prompt = prompt_template
         logging.info(f"Chunk #{i}/{num_chunks}")
-        #model_engine = "gpt-3.5-turbo"
-        model_engine = "gpt-4"
         prompt = prompt.format(chunk=chunk)
 
         message = [
@@ -87,25 +93,47 @@ prompt = config.get('main', 'prompt').replace('\\n', '\n')
 role = config.get('main', 'role')
 temperature = float(config.get('main', 'temperature'))
 key = config.get('main', 'key')
+model = MODELS[2]
 
 # create the argument parser
 parser = argparse.ArgumentParser(description='Process a file applying a prompt to batches of lines')
 
-parser.add_argument('-i', dest='filename', help='input file name', required=True)
+parser.add_argument('-i', dest='filename', help='input file name')
 parser.add_argument('-c', dest='chunks', help='number of chunks', type=int, default=chunks)
 parser.add_argument('-f', dest='prompt_file', help='path to the prompt file', default='default.pmt')
 parser.add_argument('-k', dest='key', help='Openai Key', default=key)
 parser.add_argument('-r', dest='role', help='the system role string', default=role)
 parser.add_argument('-p', dest='prompt', help='the prompt for chatgpt', default=prompt)
+parser.add_argument('-m', dest='model', help='the model used by chatgpt (default=gpt-3.5-turbo)', default=model)
+parser.add_argument('--list-models', help='list the supported models', action='store_true')
 parser.add_argument('-t', dest='temperature', help='how deterministic will answers be, 0=max determinism', type=float, default=temperature)
 args = parser.parse_args()
 
+filename = args.filename
 chunks = args.chunks
 prompt_file = args.prompt_file
 key = args.key
 role = args.role
 prompt = args.prompt
 temperature = args.temperature
+model = args.model
+
+if model not in MODELS:
+    print("This model is unknown/not supported. List supported ones with --list-models")
+    sys.exit(0)
+
+if args.list_models:
+  print("Supported models:")
+  for s in MODELS:
+    if s == model:
+      print("* " + s)
+    else:
+      print("  "+s)
+  sys.exit(0)
+
+if not filename:
+    print("Specify a file with the -i /PATH/TO/FILE option")
+    sys.exit(1)
 
 if key == "":
     logging.error("Please set an OpenAI API key in config.ini (key =..) or with -k option")
@@ -131,7 +159,7 @@ start_time = time.time()
 
 # check if the command succeeded
 logging.info("Translating CSV tickets from PT to EN and tagging them")
-chunk_csv_file(csv_filename, chunks, prompt, role, temperature)
+chunk_csv_file(csv_filename, chunks, prompt, role, temperature, model)
 end_time = time.time()
 elapsed_time = end_time - start_time
 logging.info(f"Operation completed in {elapsed_time} seconds.")
