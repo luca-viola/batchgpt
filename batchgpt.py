@@ -85,6 +85,7 @@ prompt_file = ""
 key = ""
 role = ""
 temperature = 0.0
+model = MODELS[2]
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -93,7 +94,7 @@ prompt = config.get('main', 'prompt').replace('\\n', '\n')
 role = config.get('main', 'role')
 temperature = float(config.get('main', 'temperature'))
 key = config.get('main', 'key')
-model = MODELS[2]
+model = config.get('main', 'model')
 
 # create the argument parser
 parser = argparse.ArgumentParser(description='Process a file applying a prompt to batches of lines')
