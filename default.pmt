@@ -1,4 +1,4 @@
-ChatGPT, I am attaching a CSV file with some helpdesk tickets in portuguese. You should translate each portuguese sentence in english and classify each message out of this list:
+ChatGPT, I am attaching a file with some helpdesk tickets in portuguese. You should translate each portuguese sentence in english and classify each message out of this list:
 TICKET ISSUES
 APP LOGIN ISSUES
 APP CRASHES
@@ -19,7 +19,5 @@ Your output will be a json file with the structure:
     ]
         
 ANSWER ONLY WITH THE JSON FILE AND DO NOT ADD ANY EXPLANATION.    
-Here is the csv file:
+Here is the file:
 
-ticket_pt
-{chunk}

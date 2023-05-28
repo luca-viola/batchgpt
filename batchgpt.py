@@ -19,6 +19,7 @@ MODELS = [
     "code-davinci-002"
 ]
 
+
 def get_max_lines(filename):
     with open(filename, 'r') as f:
         data = f.read().strip()
@@ -26,15 +27,27 @@ def get_max_lines(filename):
         return len(segments)
 
 
-def read_file_in_chunks(file_path, chunk_size):
-    with open(file_path, 'r') as file:
-        while True:
-            lines = list(itertools.islice(file, chunk_size))
-            if not lines:
-                break
-            yield lines
+# def read_file_in_chunks(file_path, chunk_size):
+#     with open(file_path, 'r') as file:
+#         while True:
+#             lines = list(itertools.islice(file, chunk_size))
+#             if not lines:
+#                 break
+#             yield lines
 
-def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, model_engine, new_filename):
+def read_file_in_chunks(file_path, chunk_size, whole=False):
+    with open(file_path, 'r') as file:
+        if whole:
+            yield file.read().splitlines()
+        else:
+            while True:
+                lines = list(itertools.islice(file, chunk_size))
+                if not lines:
+                    break
+                yield lines
+
+
+def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, model_engine, new_filename, whole=False):
     # Get the maximum number of segments in the SRT file
     max_segments = get_max_lines(filename)
     # Calculate the number of chunks
@@ -43,10 +56,13 @@ def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, mod
     if new_filename == "":
       new_filename = f"{name}.out"
     # Loop through each chunk
+    if whole:
+        max_segments = 1
+        num_chunks = 1
     with open(new_filename, 'w') as srtfile:
-      i = 0
-      for chunk in read_file_in_chunks(filename, chunk_size):
-        prompt = prompt_template
+      i = 1
+      for chunk in read_file_in_chunks(filename, chunk_size, whole):
+        prompt = prompt_template+"\n{chunk}\n"
         logging.info(f"Chunk #{i}/{num_chunks}")
         prompt = prompt.format(chunk=chunk)
 
@@ -96,12 +112,14 @@ role = config.get('main', 'role')
 temperature = float(config.get('main', 'temperature'))
 key = config.get('main', 'key')
 model = config.get('main', 'model')
+whole = False
 
 # create the argument parser
 parser = argparse.ArgumentParser(description='Process a file applying a prompt to batches of lines')
 
 parser.add_argument('-i', dest='filename', help='input file name')
 parser.add_argument('-c', dest='chunks', help='number of chunks', type=int, default=chunks)
+parser.add_argument('-1', dest='whole', help='Read the whole file in one go', action='store_true')
 parser.add_argument('-f', dest='prompt_file', help='path to the prompt file', default='default.pmt')
 parser.add_argument('-k', dest='key', help='Openai Key', default=key)
 parser.add_argument('-r', dest='role', help='the system role string', default=role)
@@ -121,6 +139,7 @@ prompt = args.prompt
 temperature = args.temperature
 new_filename = args.new_filename
 model = args.model
+whole = args.whole
 
 if model not in MODELS:
     print("This model is unknown/not supported. List supported ones with --list-models")
@@ -163,7 +182,7 @@ start_time = time.time()
 
 # check if the command succeeded
 logging.info("Translating CSV tickets from PT to EN and tagging them")
-chunk_csv_file(csv_filename, chunks, prompt, role, temperature, model, new_filename)
+chunk_csv_file(csv_filename, chunks, prompt, role, temperature, model, new_filename, whole)
 end_time = time.time()
 elapsed_time = end_time - start_time
 logging.info(f"Operation completed in {elapsed_time} seconds.")
