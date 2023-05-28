@@ -4,20 +4,22 @@ import sys
 import time
 import openai
 import logging
+import tiktoken
 import argparse
 import itertools
 import configparser
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
-MODELS = [
-    "gpt-4",
-    "gpt-4-32k",
-    "gpt-3.5-turbo",
-    "text-davinci-003",
-    "text-davinci-002",
-    "code-davinci-002"
-]
+PRICING = {
+    "gpt-4": 0.06,
+    "gpt-4-32k": 0.12,
+    "gpt-3.5-turbo": 0.002 ,
+    "text-davinci-003": 0.0200,
+    "text-davinci-002": 0.0200,
+    "code-davinci-002": 0.0200
+}
+MODELS = list(PRICING.keys())
 
 
 def get_max_lines(filename):
@@ -26,14 +28,6 @@ def get_max_lines(filename):
         segments = data.split('\n')
         return len(segments)
 
-
-# def read_file_in_chunks(file_path, chunk_size):
-#     with open(file_path, 'r') as file:
-#         while True:
-#             lines = list(itertools.islice(file, chunk_size))
-#             if not lines:
-#                 break
-#             yield lines
 
 def read_file_in_chunks(file_path, chunk_size, whole=False):
     with open(file_path, 'r') as file:
@@ -47,11 +41,11 @@ def read_file_in_chunks(file_path, chunk_size, whole=False):
                 yield lines
 
 
-def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, model_engine, new_filename, whole=False):
+def chunk_csv_file(filename, lines_per_chunk, prompt_template, role, temperature, model_engine, new_filename, tokenizer, whole=False):
     # Get the maximum number of segments in the SRT file
     max_segments = get_max_lines(filename)
     # Calculate the number of chunks
-    num_chunks = (max_segments // chunk_size) + (1 if max_segments % chunk_size > 0 else 0)
+    num_chunks = (max_segments // lines_per_chunk) + (1 if max_segments % lines_per_chunk > 0 else 0)
     name, ext = os.path.splitext(filename)
     if new_filename == "":
       new_filename = f"{name}.out"
@@ -61,7 +55,12 @@ def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, mod
         num_chunks = 1
     with open(new_filename, 'w') as srtfile:
       i = 1
-      for chunk in read_file_in_chunks(filename, chunk_size, whole):
+      cost= 0.0
+      for chunk in read_file_in_chunks(filename, lines_per_chunk, whole):
+        tokens = len(tokenizer.encode("".join(chunk)))
+        logging.info("Number of tokens: "+str(tokens))
+        cost = cost + (tokens/1000)*PRICING[model_engine]
+        logging.info("Cost: "+"{:.4f}".format(cost)+" USD")
         prompt = prompt_template+"\n{chunk}\n"
         logging.info(f"Chunk #{i}/{num_chunks}")
         prompt = prompt.format(chunk=chunk)
@@ -77,7 +76,6 @@ def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, mod
                   model=model_engine,
                   messages=message,
                   temperature=temperature,
-                  #max_tokens=1024,
                   #n=1,
                   #stop=None,
                 )
@@ -145,6 +143,8 @@ if model not in MODELS:
     print("This model is unknown/not supported. List supported ones with --list-models")
     sys.exit(0)
 
+enc = tiktoken.encoding_for_model(model)
+
 if args.list_models:
   print("Supported models:")
   for s in MODELS:
@@ -181,8 +181,9 @@ csv_filename = args.filename
 start_time = time.time()
 
 # check if the command succeeded
-logging.info("Translating CSV tickets from PT to EN and tagging them")
-chunk_csv_file(csv_filename, lines, prompt, role, temperature, model, new_filename, whole)
+logging.info("BATCHGPT - a batch text processor that uses chatgpt")
+chunk_csv_file(csv_filename, lines, prompt, role, temperature, model, new_filename, enc, whole)
 end_time = time.time()
 elapsed_time = end_time - start_time
+elapsed_time = "{:.2f}".format(elapsed_time)
 logging.info(f"Operation completed in {elapsed_time} seconds.")
