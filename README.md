@@ -1,7 +1,14 @@
 # BATCHGPT
 
-BATCHGPT is a quick and easy command line utility to use chatgpt in scripts, mainly for text transformationtask, or for 
-applying prompts to groups of line in a file for batch processing avoid context token limitations.
+BATCHGPT is a quick and easy command line utility to use chatgpt in scripts, mainly for text 
+transformation tasks, or for  applying prompts to groups of line in a file for batch processing.
+Its main reason to be is avoiding context size limitations for tokens on larger files, calling
+the OpenAI chatgpt APIs in chunks of text and storing the result in an output file.
+
+The script implements retrying strategies when chatgpt answers with errors for API rate limits,
+or API errors that ask _to try again later_. In those cases, the script will resubmit the 
+current chunk of lines until it gets processed by chatgpt.
+
 ```
 $ batchgpt.py -h
 usage: batchgpt.py [-h] [-i FILENAME] [-l LINES] [-1] [-f PROMPT_FILE] [-k KEY] [-r ROLE]
@@ -23,7 +30,6 @@ options:
   --list-models    list the supported models
   -t TEMPERATURE   how deterministic will answers be, 0=max determinism
 ```
-
 The script supports different models for the engine:
 ```
 $ batchgpt.py --list-models
@@ -35,9 +41,7 @@ Supported models:
   text-davinci-002
   code-davinci-002
 ```
-
 As an example. running it like:
-
 ```
 batchgpt.py -i myfile.csv 
      -l 5 
@@ -53,7 +57,9 @@ batchgpt.py -i myfile.csv
          them"
 ```
 will produce a CSV file with an inferred categorization and a translation of the sentences
-in english, in groups of 5 lines at a time.
+in english, in groups of 5 lines at a time. You can ask to produce JSON, or XML, it is up to
+you to generate a prompt that can describe the type of text transformation or analysis you 
+need and its output structure.
 
 You can specify the prompt externally and make it operate on a file, you can basically craft
 whatever text transformation you want in natural language.
