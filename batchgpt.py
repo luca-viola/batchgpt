@@ -96,7 +96,7 @@ def chunk_csv_file(filename, chunk_size, prompt_template, role, temperature, mod
       srtfile.close()
 
 
-chunks = 5
+lines = 5
 prompt = ""
 prompt_file = ""
 key = ""
@@ -106,7 +106,7 @@ model = MODELS[2]
 
 config = configparser.ConfigParser()
 config.read('config.ini')
-chunks = int(config.getint('main', 'chunks'))
+lines = int(config.getint('main', 'lines'))
 prompt = config.get('main', 'prompt').replace('\\n', '\n')
 role = config.get('main', 'role')
 temperature = float(config.get('main', 'temperature'))
@@ -118,7 +118,7 @@ whole = False
 parser = argparse.ArgumentParser(description='Process a file applying a prompt to batches of lines')
 
 parser.add_argument('-i', dest='filename', help='input file name')
-parser.add_argument('-c', dest='chunks', help='number of chunks', type=int, default=chunks)
+parser.add_argument('-l', dest='lines', help='number of lines in a chunk', type=int, default=lines)
 parser.add_argument('-1', dest='whole', help='Read the whole file in one go', action='store_true')
 parser.add_argument('-f', dest='prompt_file', help='path to the prompt file', default='default.pmt')
 parser.add_argument('-k', dest='key', help='Openai Key', default=key)
@@ -131,7 +131,7 @@ parser.add_argument('-t', dest='temperature', help='how deterministic will answe
 args = parser.parse_args()
 
 filename = args.filename
-chunks = args.chunks
+lines = args.lines
 prompt_file = args.prompt_file
 key = args.key
 role = args.role
@@ -182,7 +182,7 @@ start_time = time.time()
 
 # check if the command succeeded
 logging.info("Translating CSV tickets from PT to EN and tagging them")
-chunk_csv_file(csv_filename, chunks, prompt, role, temperature, model, new_filename, whole)
+chunk_csv_file(csv_filename, lines, prompt, role, temperature, model, new_filename, whole)
 end_time = time.time()
 elapsed_time = end_time - start_time
 logging.info(f"Operation completed in {elapsed_time} seconds.")
