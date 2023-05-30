@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(mes
 PRICING = {
     "gpt-4": 0.06,
     "gpt-4-32k": 0.12,
-    "gpt-3.5-turbo": 0.002 ,
+    "gpt-3.5-turbo": 0.002,
     "text-davinci-003": 0.0200,
     "text-davinci-002": 0.0200,
     "code-davinci-002": 0.0200
