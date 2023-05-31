@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 import sys
 import time
 import openai
@@ -8,6 +9,7 @@ import tiktoken
 import argparse
 import itertools
 import configparser
+from faker import Faker
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
@@ -41,6 +43,20 @@ def read_file_in_chunks(file_path, chunk_size, whole=False):
                 yield lines
 
 
+def anonymize_personal_data(input_string):
+    fake = Faker()
+    def replace_email(match):
+        return fake.email()
+    def replace_phone(match):
+        return fake.phone_number()
+
+    # Replace emails
+    replaced_string = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', replace_email, input_string)
+    # Replace phone numbers. This regular expression will also consider international prefixes.
+    replaced_string = re.sub(r'\+?[\s.-]?\(?\d{1,4}?\)?[\s.-]?\(?\d{1,3}?\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}', replace_phone, replaced_string)
+    return replaced_string
+
+
 def chunk_csv_file(filename, lines_per_chunk, prompt_template, role, temperature, model_engine, new_filename, tokenizer, whole=False):
     # Get the maximum number of segments in the SRT file
     max_segments = get_max_lines(filename)
@@ -57,6 +73,7 @@ def chunk_csv_file(filename, lines_per_chunk, prompt_template, role, temperature
       i = 1
       cost= 0.0
       for chunk in read_file_in_chunks(filename, lines_per_chunk, whole):
+        chunk = anonymize_personal_data(chunk)
         tokens = len(tokenizer.encode("".join(chunk)))
         logging.info("Number of tokens: "+str(tokens))
         cost = cost + (tokens/1000)*PRICING[model_engine]
