@@ -14,12 +14,12 @@ from faker import Faker
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
 PRICING = {
-    "gpt-4": 0.06,
-    "gpt-4-32k": 0.12,
-    "gpt-3.5-turbo": 0.002,
-    "text-davinci-003": 0.0200,
-    "text-davinci-002": 0.0200,
-    "code-davinci-002": 0.0200
+    "gpt-4": {"cost": 0.06, "context_size": 8192},
+    "gpt-4-32k": {"cost": 0.12, "context_size": 32768},
+    "gpt-3.5-turbo": {"cost": 0.002, "context_size": 4096},
+    "text-davinci-003": {"cost": 0.0200, "context_size": 4097},
+    "text-davinci-002": {"cost": 0.0200, "context_size": 4097},
+    "code-davinci-002": {"cost": 0.0200, "context_size": 8001}
 }
 MODELS = list(PRICING.keys())
 
@@ -51,9 +51,9 @@ def anonymize_personal_data(input_string):
         return fake.phone_number()
 
     # Replace emails
-    replaced_string = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', replace_email, input_string)
+    replaced_string = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', str(replace_email), str(input_string))
     # Replace phone numbers. This regular expression will also consider international prefixes.
-    replaced_string = re.sub(r'\+?[\s.-]?\(?\d{1,4}?\)?[\s.-]?\(?\d{1,3}?\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}', replace_phone, replaced_string)
+    replaced_string = re.sub(r'\+?[\s.-]?\(?\d{1,4}?\)?[\s.-]?\(?\d{1,3}?\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}', str(replace_phone), str(replaced_string))
     return replaced_string
 
 
@@ -76,7 +76,7 @@ def chunk_csv_file(filename, lines_per_chunk, prompt_template, role, temperature
         chunk = anonymize_personal_data(chunk)
         tokens = len(tokenizer.encode("".join(chunk)))
         logging.info("Number of tokens: "+str(tokens))
-        cost = cost + (tokens/1000)*PRICING[model_engine]
+        cost = cost + (tokens/1000)*PRICING[model_engine]['cost']
         logging.info("Cost: "+"{:.4f}".format(cost)+" USD")
         prompt = prompt_template+"\n{chunk}\n"
         logging.info(f"Chunk #{i}/{num_chunks}")
@@ -98,9 +98,11 @@ def chunk_csv_file(filename, lines_per_chunk, prompt_template, role, temperature
                 )
             except openai.error.APIError:
                 logging.warning(f"API Error, retrying chunk #{i}")
+                cost = cost - (tokens / 1000) * PRICING[model_engine]['cost']
                 continue
             except openai.error.RateLimitError:
                 logging.warning(f"API Rate Limit Error, retrying chunk #{i}")
+                cost = cost - (tokens / 1000) * PRICING[model_engine]['cost']
                 continue
             break
         response = completion.choices[0].message.content
