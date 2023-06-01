@@ -42,7 +42,37 @@ def read_file_in_chunks(file_path, chunk_size, whole=False):
                     break
                 yield lines
 
+def read_file_in_chunks_by_context_size(file_path, context_size, tokenizer, whole=False):
+    with open(file_path, 'r') as file:
+        if whole:
+            lines = file.read().splitlines()
+            tokens = len(tokenizer.encode("".join(lines)))
+            if(tokens > context_size):
+                raise Exception(f"Lenght of tokens in single file ({tokens}) exceed the token context size ({context_size})")
+            yield lines
+        else:
+            chunk_size = 1
+            lines = []
+            tokens = 0
 
+            while True:
+                next_line = list(itertools.islice(file, chunk_size))
+                if not next_line:  # End of file
+                    if lines:  # Yield any remaining lines
+                        yield lines
+                    break
+
+                next_tokens = len(tokenizer.encode("".join(next_line)))
+
+                if tokens + next_tokens > context_size:  # The next line pushes us over the limit
+                    if lines:  # Yield the current batch before starting a new one
+                        logging.info("Tokens sent: "+str(tokens + next_tokens))
+                        yield lines
+                    lines = []
+                    tokens = 0
+                else:  # The next line doesn't push us over the limit, so add it to the batch
+                    lines.extend(next_line)
+                    tokens += next_tokens
 def anonymize_personal_data(input_string):
     fake = Faker()
     def replace_email(match):
@@ -53,7 +83,7 @@ def anonymize_personal_data(input_string):
     # Replace emails
     replaced_string = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', str(replace_email), str(input_string))
     # Replace phone numbers. This regular expression will also consider international prefixes.
-    replaced_string = re.sub(r'\+?[\s.-]?\(?\d{1,4}?\)?[\s.-]?\(?\d{1,3}?\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}', str(replace_phone), str(replaced_string))
+    replaced_string = re.sub(r'[\+\d]?(\d{2,3}[-\.\s]??\d{2,3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{4})', str(replace_phone), str(replaced_string))
     return replaced_string
 
 
@@ -72,7 +102,9 @@ def chunk_csv_file(filename, lines_per_chunk, prompt_template, role, temperature
     with open(new_filename, 'w') as srtfile:
       i = 1
       cost= 0.0
-      for chunk in read_file_in_chunks(filename, lines_per_chunk, whole):
+     # for chunk in read_file_in_chunks(filename, lines_per_chunk, whole):
+      context_size = PRICING[model_engine]['context_size']
+      for chunk in read_file_in_chunks_by_context_size(filename, context_size, enc, whole):
         chunk = anonymize_personal_data(chunk)
         tokens = len(tokenizer.encode("".join(chunk)))
         logging.info("Number of tokens: "+str(tokens))
