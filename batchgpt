@@ -66,7 +66,7 @@ def read_file_in_chunks_by_context_size(file_path, context_size, tokenizer, whol
 
                 if tokens + next_tokens > context_size:  # The next line pushes us over the limit
                     if lines:  # Yield the current batch before starting a new one
-                        logging.info("Tokens sent: "+str(tokens + next_tokens))
+                        logging.info("Tokens sent: "+str(tokens))
                         yield lines
                     lines = []
                     tokens = 0
@@ -75,15 +75,11 @@ def read_file_in_chunks_by_context_size(file_path, context_size, tokenizer, whol
                     tokens += next_tokens
 def anonymize_personal_data(input_string):
     fake = Faker()
-    def replace_email(match):
-        return fake.email()
-    def replace_phone(match):
-        return fake.phone_number()
 
     # Replace emails
-    replaced_string = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', str(replace_email), str(input_string))
+    replaced_string = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', fake.email(), str(input_string))
     # Replace phone numbers. This regular expression will also consider international prefixes.
-    replaced_string = re.sub(r'[\+\d]?(\d{2,3}[-\.\s]??\d{2,3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{4})', str(replace_phone), str(replaced_string))
+    replaced_string = re.sub(r'[\+\d]?(\d{2,3}[-\.\s]??\d{2,3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{4})', fake.phone_number(), str(replaced_string))
     return replaced_string
 
 
@@ -104,8 +100,9 @@ def chunk_csv_file(filename, lines_per_chunk, prompt_template, role, temperature
       cost= 0.0
      # for chunk in read_file_in_chunks(filename, lines_per_chunk, whole):
       context_size = PRICING[model_engine]['context_size']
-      for chunk in read_file_in_chunks_by_context_size(filename, context_size, enc, whole):
+      for chunk in read_file_in_chunks_by_context_size(filename, context_size-512-len(tokenizer.encode(prompt_template)), enc, whole):
         chunk = anonymize_personal_data(chunk)
+        logging.info(chunk)
         tokens = len(tokenizer.encode("".join(chunk)))
         logging.info("Number of tokens: "+str(tokens))
         cost = cost + (tokens/1000)*PRICING[model_engine]['cost']
